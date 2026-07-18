@@ -132,6 +132,12 @@ console.log("✅ Micro-donation script loaded");
       if (!donationRes.ok) {
         throw new Error(data.error || "Failed to start donation");
       }
+
+      if (data.donation.status === "completed") {
+        statusSpan.textContent = "✅ You've already donated for this order!";
+        promptEl.style.display = "none";
+        return;
+      }
       if (!data.payment_intent_client_secret) {
         throw new Error("Missing client secret from backend");
       }

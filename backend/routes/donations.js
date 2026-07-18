@@ -72,9 +72,22 @@ router.post('/', async (req, res) => {
     );
 
     if (existing.rows.length > 0) {
+      const existingDonation = existing.rows[0];
+
+      if (existingDonation.status === 'completed') {
+        return res.status(200).json({
+          donation: existingDonation,
+          message: "Donation already completed for this order"
+        });
+      }
+
+      // Still pending (e.g. they navigated away mid-payment) - hand back a
+      // fresh client secret so they can resume rather than erroring out.
+      const existingIntent = await stripe.paymentIntents.retrieve(existingDonation.stripe_payment_intent_id);
       return res.status(200).json({
-        donation: existing.rows[0],
-        message: "Donation already exists for this order"
+        donation: existingDonation,
+        payment_intent_client_secret: existingIntent.client_secret,
+        message: "Resuming existing donation for this order"
       });
     }
 
