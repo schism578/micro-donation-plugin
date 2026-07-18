@@ -38,8 +38,21 @@ async function createOnboardingLink(stripeAccountId, refreshUrl, returnUrl) {
   return accountLink.url;
 }
 
+// Fetches live Connect status directly from Stripe. The account.updated
+// webhook is the fast path for keeping this in sync, but its delivery has
+// proven unreliable across environments, so callers use this as a
+// fallback check rather than trusting the cached DB flag alone.
+async function retrieveAccountStatus(stripeAccountId) {
+  const account = await stripe.accounts.retrieve(stripeAccountId);
+  return {
+    charges_enabled: account.charges_enabled,
+    payouts_enabled: account.payouts_enabled
+  };
+}
+
 module.exports = {
   createPaymentIntent,
   createExpressAccount,
-  createOnboardingLink
+  createOnboardingLink,
+  retrieveAccountStatus
 };

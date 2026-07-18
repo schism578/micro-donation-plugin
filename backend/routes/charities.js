@@ -75,11 +75,32 @@ router.get('/:id/onboard/refresh', (req, res) => {
   res.redirect(`/api/charities/${req.params.id}/onboard`);
 });
 
-// Account Link's return_url target after the rep finishes the form. This
-// only means they went through the flow, not that Stripe has approved the
-// account - real confirmation comes via the account.updated webhook.
-router.get('/:id/onboard/complete', (req, res) => {
-  res.send('Onboarding submitted. Stripe will confirm activation shortly.');
+// Account Link's return_url target after the rep finishes the form.
+// account.updated webhook delivery has proven unreliable, so actively sync
+// status here too rather than waiting on it.
+router.get('/:id/onboard/complete', async (req, res) => {
+  try {
+    const result = await db.query('SELECT * FROM charities WHERE id = $1', [req.params.id]);
+    if (result.rows.length === 0) {
+      return res.status(404).send('Charity not found');
+    }
+
+    const charity = result.rows[0];
+    const status = await stripeService.retrieveAccountStatus(charity.stripe_account_id);
+    await db.query(
+      'UPDATE charities SET charges_enabled=$1, payouts_enabled=$2 WHERE id=$3',
+      [status.charges_enabled, status.payouts_enabled, charity.id]
+    );
+
+    res.send(
+      status.payouts_enabled
+        ? 'Onboarding complete - this charity can now receive donations.'
+        : 'Onboarding submitted, but Stripe has not yet marked this account as ready. Try again shortly.'
+    );
+  } catch (err) {
+    console.error('Failed to sync charity status:', err.response?.data || err.message);
+    res.status(500).send('Onboarding submitted, but we could not confirm activation status.');
+  }
 });
 
 module.exports = router;

@@ -1,6 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const db = require('../services/db');
+const stripeService = require('../services/stripe');
 const stripe = require('stripe')(process.env.STRIPE_SECRET_KEY);
 
 // POST /api/donations
@@ -49,7 +50,19 @@ router.post('/', async (req, res) => {
     }
     const charity = charityResult.rows[0];
     if (!charity.payouts_enabled) {
-      return res.status(400).json({ error: "Charity is not yet able to receive donations" });
+      // The account.updated webhook is the fast path for this, but its
+      // delivery has proven unreliable, so fall back to asking Stripe
+      // directly before rejecting a charity that may actually be ready.
+      const liveStatus = await stripeService.retrieveAccountStatus(charity.stripe_account_id);
+      if (liveStatus.payouts_enabled) {
+        await db.query(
+          "UPDATE charities SET charges_enabled=$1, payouts_enabled=$2 WHERE id=$3",
+          [liveStatus.charges_enabled, liveStatus.payouts_enabled, charity_id]
+        );
+        charity.payouts_enabled = true;
+      } else {
+        return res.status(400).json({ error: "Charity is not yet able to receive donations" });
+      }
     }
 
     // Check if donation already exists
