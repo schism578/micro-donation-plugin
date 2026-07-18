@@ -1,0 +1,15 @@
+{% comment %}
+  Global app embed: loads the round-up donation widget on every storefront
+  page. The script itself no-ops unless it finds a cart subtotal element, so
+  it's safe to run everywhere rather than needing per-page placement.
+{% endcomment %}
+<script src="https://js.stripe.com/v3/" defer></script>
+<script src="{{ 'micro-donation.js' | asset_url }}" defer></script>
+
+{% schema %}
+{
+  "name": "Micro-Donation Widget",
+  "target": "body",
+  "settings": []
+}
+{% endschema %}

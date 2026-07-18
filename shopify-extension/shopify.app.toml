@@ -1,0 +1,20 @@
+# Learn more about configuring your app at https://shopify.dev/docs/apps/tools/cli/configuration
+
+client_id = "a55b5eec19884a2fefa094ba05939110"
+application_url = "https://micro-donation-plugin-production.up.railway.app/"
+embedded = true
+name = "Micro-Donation"
+
+[webhooks]
+api_version = "2026-07"
+
+[access_scopes]
+# Learn more at https://shopify.dev/docs/apps/tools/cli/configuration#access_scopes
+scopes = ""
+optional_scopes = [ ]
+use_legacy_install_flow = false
+
+[auth]
+redirect_urls = [
+  "https://micro-donation-plugin-production.up.railway.app/auth/callback"
+]
