@@ -50,19 +50,28 @@ module.exports = async (req, res) => {
     }
   }
 
-  if (event.type === 'account.updated') {
-    const account = event.data.object;
+  if (event.type === 'account.updated' || event.type?.endsWith('account.updated')) {
+    // Thin events only carry an id reference, not the full object, so
+    // re-fetch the account from Stripe directly rather than assuming the
+    // payload shape - this works for both snapshot and thin delivery.
+    const accountId =
+      event.data?.object?.id || event.account || event.data?.id || event.related_object?.id;
 
-    try {
-      await db.query(
-        `UPDATE charities SET charges_enabled=$1, payouts_enabled=$2 WHERE stripe_account_id=$3`,
-        [account.charges_enabled, account.payouts_enabled, account.id]
-      );
-      console.log(
-        `Charity account ${account.id} updated: charges_enabled=${account.charges_enabled}, payouts_enabled=${account.payouts_enabled}`
-      );
-    } catch (err) {
-      console.error("Error updating charity Connect status:", err);
+    if (!accountId) {
+      console.warn("account.updated event received but no account id found:", JSON.stringify(event));
+    } else {
+      try {
+        const account = await stripe.accounts.retrieve(accountId);
+        await db.query(
+          `UPDATE charities SET charges_enabled=$1, payouts_enabled=$2 WHERE stripe_account_id=$3`,
+          [account.charges_enabled, account.payouts_enabled, account.id]
+        );
+        console.log(
+          `Charity account ${account.id} synced: charges_enabled=${account.charges_enabled}, payouts_enabled=${account.payouts_enabled}`
+        );
+      } catch (err) {
+        console.error("Error syncing charity Connect status:", err);
+      }
     }
   }
 
