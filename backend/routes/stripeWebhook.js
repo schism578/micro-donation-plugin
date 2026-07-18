@@ -1,15 +1,31 @@
 const db = require('../services/db');
 const stripe = require('stripe')(process.env.STRIPE_SECRET_KEY);
 
+// Stripe may require separate webhook endpoints (each with its own signing
+// secret) for "your account" events vs "connected accounts" events - if
+// STRIPE_WEBHOOK_SECRET_CONNECT is set, try both secrets before rejecting.
+const WEBHOOK_SECRETS = [
+  process.env.STRIPE_WEBHOOK_SECRET,
+  process.env.STRIPE_WEBHOOK_SECRET_CONNECT
+].filter(Boolean);
+
 module.exports = async (req, res) => {
   const sig = req.headers['stripe-signature'];
   let event;
+  let lastError;
 
-  try {
-    event = stripe.webhooks.constructEvent(req.body, sig, process.env.STRIPE_WEBHOOK_SECRET);
-  } catch (err) {
-    console.error("Webhook signature verification failed:", err.message);
-    return res.status(400).send(`Webhook Error: ${err.message}`);
+  for (const secret of WEBHOOK_SECRETS) {
+    try {
+      event = stripe.webhooks.constructEvent(req.body, sig, secret);
+      break;
+    } catch (err) {
+      lastError = err;
+    }
+  }
+
+  if (!event) {
+    console.error("Webhook signature verification failed:", lastError?.message);
+    return res.status(400).send(`Webhook Error: ${lastError?.message}`);
   }
 
   if (event.type === 'payment_intent.succeeded') {
