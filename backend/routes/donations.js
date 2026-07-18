@@ -128,6 +128,35 @@ router.post('/', async (req, res) => {
   }
 });
 
+// POST /api/donations/:id/confirm
+// Called by the storefront widget right after stripe.confirmPayment()
+// succeeds client-side. The account.updated/payment_intent.succeeded
+// webhook is a nice-to-have fast path, but its delivery has proven
+// unreliable, so this is the primary way donations actually get marked
+// completed - idempotent, safe even if the webhook also fires.
+router.post('/:id/confirm', async (req, res) => {
+  try {
+    const result = await db.query('SELECT * FROM donations WHERE id=$1', [req.params.id]);
+    if (result.rows.length === 0) {
+      return res.status(404).json({ error: "Donation not found" });
+    }
+    const donation = result.rows[0];
+
+    if (donation.status !== 'completed') {
+      const paymentIntent = await stripe.paymentIntents.retrieve(donation.stripe_payment_intent_id);
+      if (paymentIntent.status === 'succeeded') {
+        await db.completeDonation(donation.id);
+        donation.status = 'completed';
+      }
+    }
+
+    res.json({ donation });
+  } catch (err) {
+    console.error('Failed to confirm donation:', err);
+    res.status(500).json({ error: "Failed to confirm donation" });
+  }
+});
+
 // GET /api/donations/aggregate?period=daily|weekly|monthly&from=&to=
 router.get('/aggregate', async (req, res) => {
   const { period, from, to } = req.query;

@@ -74,6 +74,24 @@ async function recordCompletedDonationAggregate(merchantId, charityId, amountCen
   );
 }
 
+// Idempotently marks a donation completed and records its aggregate bucket.
+// Returns the donation row if this call is what completed it, or null if
+// it was already completed (safe to call from both the webhook and the
+// client-triggered confirm endpoint without double-counting).
+async function completeDonation(donationId) {
+  const result = await pool.query(
+    `UPDATE donations SET status='completed' WHERE id=$1 AND status != 'completed'
+     RETURNING merchant_id, charity_id, amount_cents, created_at`,
+    [donationId]
+  );
+
+  if (result.rows.length === 0) return null;
+
+  const { merchant_id, charity_id, amount_cents, created_at } = result.rows[0];
+  await recordCompletedDonationAggregate(merchant_id, charity_id, amount_cents, created_at);
+  return result.rows[0];
+}
+
 async function deleteMerchant(shopDomain) {
   const merchant = await getMerchantByShopDomain(shopDomain);
   if (!merchant) return;
@@ -90,6 +108,7 @@ module.exports = {
   getMerchantSettings,
   updateMerchantSettings,
   recordCompletedDonationAggregate,
+  completeDonation,
   deleteMerchant,
   pool
 };

@@ -98,6 +98,7 @@ console.log("✅ Micro-donation script loaded");
 
   let stripe;
   let elements;
+  let donationId;
 
   // 6️⃣ Handle donation click: create the donation + PaymentIntent, then
   // mount a real Stripe Payment Element for the customer to pay with.
@@ -136,6 +137,7 @@ console.log("✅ Micro-donation script loaded");
         throw new Error("Missing client secret from backend");
       }
 
+      donationId = data.donation.id;
       stripe = Stripe(config.stripePublishableKey);
       elements = stripe.elements({ clientSecret: data.payment_intent_client_secret });
       const paymentElement = elements.create("payment");
@@ -167,6 +169,14 @@ console.log("✅ Micro-donation script loaded");
         statusSpan.textContent = `❌ ${error.message || "Donation payment failed"}`;
         confirmButton.disabled = false;
       } else if (paymentIntent.status === "succeeded") {
+        // Webhook delivery for finalizing the donation server-side has
+        // proven unreliable, so tell the backend directly rather than
+        // waiting on it.
+        try {
+          await fetch(`${BACKEND_ORIGIN}/api/donations/${donationId}/confirm`, { method: "POST" });
+        } catch (confirmErr) {
+          console.warn("Payment succeeded but failed to notify backend:", confirmErr);
+        }
         statusSpan.textContent = `✅ Donated $${formatCents(roundUpCents)}!`;
         paymentForm.style.display = "none";
       } else {

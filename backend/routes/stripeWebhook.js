@@ -33,18 +33,8 @@ module.exports = async (req, res) => {
     const donationId = paymentIntent.metadata.donation_id;
 
     try {
-      const result = await db.query(
-        `UPDATE donations SET status='completed' WHERE id=$1
-         RETURNING merchant_id, charity_id, amount_cents, created_at`,
-        [donationId]
-      );
-
-      if (result.rows.length > 0) {
-        const { merchant_id, charity_id, amount_cents, created_at } = result.rows[0];
-        await db.recordCompletedDonationAggregate(merchant_id, charity_id, amount_cents, created_at);
-      }
-
-      console.log(`✅ Donation ${donationId} marked as completed`);
+      await db.completeDonation(donationId);
+      console.log(`✅ Donation ${donationId} marked as completed (via webhook)`);
     } catch (err) {
       console.error("Error updating donation status:", err);
     }
