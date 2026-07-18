@@ -8,6 +8,11 @@ name = "Micro-Donation"
 [webhooks]
 api_version = "2026-07"
 
+  [webhooks.privacy_compliance]
+  customer_deletion_url = "https://micro-donation-plugin-production.up.railway.app/api/webhooks/customers/redact"
+  customer_data_request_url = "https://micro-donation-plugin-production.up.railway.app/api/webhooks/customers/data_request"
+  shop_deletion_url = "https://micro-donation-plugin-production.up.railway.app/api/webhooks/shop/redact"
+
 [access_scopes]
 # Learn more at https://shopify.dev/docs/apps/tools/cli/configuration#access_scopes
 scopes = ""
