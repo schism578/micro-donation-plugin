@@ -1,5 +1,6 @@
 const axios = require('axios');
 const crypto = require('crypto');
+const jwt = require('jsonwebtoken');
 
 // NOTE: verify this is still a supported Shopify API version before relying
 // on it in production - Shopify sunsets versions roughly a year after release.
@@ -71,6 +72,27 @@ function verifyWebhookHmac(rawBody, hmacHeader) {
   return a.length === b.length && crypto.timingSafeEqual(a, b);
 }
 
+// Verifies a Shopify App Bridge session token (JWT) and returns the shop
+// domain it was issued for. Used to authenticate embedded admin requests -
+// throws if the token is invalid, expired, or issued for a different app.
+function verifySessionToken(token) {
+  const payload = jwt.verify(token, process.env.SHOPIFY_API_SECRET, {
+    algorithms: ['HS256']
+  });
+
+  if (payload.aud !== process.env.SHOPIFY_API_KEY) {
+    throw new Error('Session token was not issued for this app');
+  }
+
+  // dest looks like "https://shop-name.myshopify.com"
+  const shop = new URL(payload.dest).hostname;
+  if (!isValidShopDomain(shop)) {
+    throw new Error('Session token has an invalid shop domain');
+  }
+
+  return shop;
+}
+
 async function exchangeCodeForToken(shop, code) {
   const response = await axios.post(`https://${shop}/admin/oauth/access_token`, {
     client_id: process.env.SHOPIFY_API_KEY,
@@ -112,6 +134,7 @@ module.exports = {
   buildInstallUrl,
   verifyOAuthHmac,
   verifyWebhookHmac,
+  verifySessionToken,
   exchangeCodeForToken,
   registerWebhooks
 };

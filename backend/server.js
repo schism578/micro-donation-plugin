@@ -42,7 +42,9 @@ app.use('/api/merchant', merchantDonationsRoutes);
 app.use('/api/merchant', merchantTimeseriesRoutes);
 app.use('/api/charities', charitiesRoutes);
 
-app.get('/', (req, res) => {
+// index.html (served by express.static above) now handles "/" as the
+// embedded admin page - this is a plain-text check for our own use.
+app.get('/health', (req, res) => {
   res.send('Micro-donation backend running');
 });
 

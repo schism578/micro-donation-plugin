@@ -1,0 +1,97 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <title>Micro-Donation Settings</title>
+  <meta name="shopify-api-key" content="a55b5eec19884a2fefa094ba05939110" />
+  <script src="https://cdn.shopify.com/shopifycloud/app-bridge.js"></script>
+  <style>
+    body { font-family: -apple-system, BlinkMacSystemFont, sans-serif; padding: 24px; }
+    select, button { font-size: 14px; padding: 6px 10px; }
+    #status { margin-left: 10px; }
+  </style>
+</head>
+<body>
+  <h2>Micro-Donation Settings</h2>
+  <p id="pickerRow">
+    <label>
+      Default charity:
+      <select id="charitySelect"></select>
+    </label>
+    <button id="saveButton">Save</button>
+    <span id="status"></span>
+  </p>
+  <p id="emptyState" style="display:none; color:#666;">
+    No charities are ready to receive donations yet.
+  </p>
+
+  <script>
+    (async function () {
+      const pickerRow = document.getElementById('pickerRow');
+      const emptyState = document.getElementById('emptyState');
+      const select = document.getElementById('charitySelect');
+      const saveButton = document.getElementById('saveButton');
+      const statusEl = document.getElementById('status');
+
+      async function authedFetch(path, options = {}) {
+        const token = await window.shopify.idToken();
+        return fetch(path, {
+          ...options,
+          headers: {
+            ...(options.headers || {}),
+            Authorization: `Bearer ${token}`
+          }
+        });
+      }
+
+      async function load() {
+        const [charitiesRes, settingsRes] = await Promise.all([
+          fetch('/api/charities'),
+          authedFetch('/api/merchants/settings')
+        ]);
+
+        const charities = (await charitiesRes.json()).filter(c => c.payouts_enabled);
+        const settings = await settingsRes.json();
+
+        if (charities.length === 0) {
+          pickerRow.style.display = 'none';
+          emptyState.style.display = 'block';
+          return;
+        }
+
+        select.innerHTML = charities
+          .map(c => `<option value="${c.id}">${c.name}</option>`)
+          .join('');
+
+        if (settings.defaultCharityId) {
+          select.value = settings.defaultCharityId;
+        }
+      }
+
+      saveButton.addEventListener('click', async () => {
+        saveButton.disabled = true;
+        statusEl.textContent = 'Saving...';
+        try {
+          const res = await authedFetch('/api/merchants/settings', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ defaultCharityId: Number(select.value) })
+          });
+          if (!res.ok) throw new Error('Save failed');
+          statusEl.textContent = '✅ Saved';
+        } catch (err) {
+          console.error(err);
+          statusEl.textContent = '❌ Failed to save';
+        } finally {
+          saveButton.disabled = false;
+        }
+      });
+
+      load().catch(err => {
+        console.error(err);
+        statusEl.textContent = '❌ Failed to load settings';
+      });
+    })();
+  </script>
+</body>
+</html>
