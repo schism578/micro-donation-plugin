@@ -1,0 +1,21 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <title>Micro-Donation Widget Test</title>
+</head>
+<body>
+  <h1>Fake Shopify Cart Page</h1>
+  <p class="cart__subtotal">$37.48</p>
+
+  <script>
+    // Simulate what a real Shopify storefront provides
+    window.Shopify = {
+      shop: 'test-shop.myshopify.com',
+      cart: { token: 'TEST_CART_' + Date.now() }
+    };
+  </script>
+  <script src="https://js.stripe.com/v3/"></script>
+  <script src="/micro-donation.js"></script>
+</body>
+</html>

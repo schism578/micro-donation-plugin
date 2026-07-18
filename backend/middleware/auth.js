@@ -1,0 +1,1 @@
+module.exports = (req,res,next)=>{const token=req.headers["x-shopify-access-token"];if(!token)return res.status(401).json({error:"Unauthorized"});next();}
