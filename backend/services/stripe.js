@@ -50,9 +50,15 @@ async function retrieveAccountStatus(stripeAccountId) {
   };
 }
 
+async function retrievePaymentIntentStatus(paymentIntentId) {
+  const paymentIntent = await stripe.paymentIntents.retrieve(paymentIntentId);
+  return paymentIntent.status;
+}
+
 module.exports = {
   createPaymentIntent,
   createExpressAccount,
   createOnboardingLink,
-  retrieveAccountStatus
+  retrieveAccountStatus,
+  retrievePaymentIntentStatus
 };

@@ -32,6 +32,21 @@ async function getDonations() {
   return res.rows;
 }
 
+// Donations that have a PaymentIntent but never got marked completed - the
+// client-triggered confirm call is the primary path for that, but it can
+// fail to reach us (tab closed, network drop), so these need to be
+// reconciled directly against Stripe rather than trusted as still in-flight.
+async function getStalePendingDonations(minutesOld = 5) {
+  const res = await pool.query(
+    `SELECT id, stripe_payment_intent_id FROM donations
+     WHERE status = 'pending'
+       AND stripe_payment_intent_id IS NOT NULL
+       AND created_at < NOW() - ($1 || ' minutes')::interval`,
+    [minutesOld]
+  );
+  return res.rows;
+}
+
 // -------------------- Merchants --------------------
 
 async function getMerchantByShopDomain(shopDomain) {
@@ -104,6 +119,7 @@ async function deleteMerchant(shopDomain) {
 module.exports = {
   query,
   getDonations,
+  getStalePendingDonations,
   getMerchantByShopDomain,
   getMerchantSettings,
   updateMerchantSettings,

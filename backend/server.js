@@ -12,6 +12,7 @@ const merchantTimeseriesRoutes = require('./routes/merchantTimeseries');
 const webhooksRoutes = require('./routes/webhooks');
 const authRoutes = require('./routes/auth');
 const charitiesRoutes = require('./routes/charities');
+const { reconcilePendingDonations } = require('./services/reconciliation');
 
 const app = express();
 const PORT = process.env.PORT || 4000;
@@ -53,6 +54,18 @@ app.get('/api/config', (req, res) => {
   res.json({ stripePublishableKey: process.env.STRIPE_PUBLISHABLE_KEY });
 });
 
+const RECONCILIATION_INTERVAL_MS = 5 * 60 * 1000;
+
 app.listen(PORT, () => {
   console.log(`Backend running on port ${PORT}`);
+
+  setInterval(() => {
+    reconcilePendingDonations()
+      .then(({ checked, completed }) => {
+        if (checked > 0) {
+          console.log(`Reconciliation sweep: checked ${checked} stale pending donation(s), completed ${completed}`);
+        }
+      })
+      .catch(err => console.error('Reconciliation sweep failed:', err));
+  }, RECONCILIATION_INTERVAL_MS);
 });
